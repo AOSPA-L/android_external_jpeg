@@ -12,6 +12,17 @@
  * optimizations.  Most users will not need to touch this file.
  */
 
+/*
+ * Define ANDROID_RGB to enable specific optimizations for Android
+ *   JCS_RGBA_8888 support
+ *
+ */
+#ifdef ANDROID
+#ifndef ANDROID_RGB
+#define ANDROID_RGB
+#endif
+#endif
+
 
 /*
  * Maximum number of components (color channels) allowed in JPEG image.
@@ -341,6 +352,7 @@ static const int rgb_pixelsize[JPEG_NUMCS] = {
   EXT_RGBX_PIXELSIZE, EXT_BGRX_PIXELSIZE, EXT_XBGR_PIXELSIZE, EXT_XRGB_PIXELSIZE,
   -1
 };
+
 
 /* Definitions for speed-related optimizations. */
 

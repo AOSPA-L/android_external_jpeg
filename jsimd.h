@@ -10,6 +10,7 @@
  *
  */
 
+
 EXTERN(int) jsimd_can_rgb_ycc (void);
 EXTERN(int) jsimd_can_rgb_gray (void);
 EXTERN(int) jsimd_can_ycc_rgb (void);

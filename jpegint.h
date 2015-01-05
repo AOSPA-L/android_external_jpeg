@@ -139,6 +139,7 @@ struct jpeg_decomp_master {
   boolean is_dummy_pass;        /* True during 1st pass for 2-pass quant */
 };
 
+
 /* Input control module */
 struct jpeg_input_controller {
   int (*consume_input) (j_decompress_ptr cinfo);
@@ -149,6 +150,11 @@ struct jpeg_input_controller {
   /* State variables made visible to other modules */
   boolean has_multiple_scans;   /* True if file has multiple scans */
   boolean eoi_reached;          /* True when EOI has been consumed */
+
+#ifdef ANDROID
+  int (*consume_input_build_huffman_index) (j_decompress_ptr cinfo, huffman_index *index, int scan_count);
+  int (*consume_markers) (j_decompress_ptr cinfo, huffman_index *index, int scan_count);
+#endif
 };
 
 /* Main buffer control (downsampled-data buffer) */
@@ -166,6 +172,25 @@ struct jpeg_d_coef_controller {
   int (*decompress_data) (j_decompress_ptr cinfo, JSAMPIMAGE output_buf);
   /* Pointer to array of coefficient virtual arrays, or NULL if none */
   jvirt_barray_ptr *coef_arrays;
+
+#ifdef ANDROID
+  int  (*consume_data_build_huffman_index) (j_decompress_ptr cinfo,huffman_index* index, int scan_count);
+
+ /* column number of the first and last tile, respectively */
+ int column_left_boundary;
+ int column_right_boundary;
+
+ /* column number of the first and last MCU, respectively */
+ int MCU_column_left_boundary;
+ int MCU_column_right_boundary;
+
+ /* the number of MCU columns to skip from the indexed MCU, iM,
+  * to the requested MCU boundary, rM, where iM is the MCU that we sample
+  * into our index and is the nearest one to the left of rM.
+  */
+ int MCU_columns_to_skip;
+
+#endif
 };
 
 /* Decompression postprocessing (color quantization buffer control) */
@@ -196,6 +221,11 @@ struct jpeg_marker_reader {
   boolean saw_SOF;              /* found SOF? */
   int next_restart_num;         /* next restart number expected (0-7) */
   unsigned int discarded_bytes; /* # of bytes skipped looking for a marker */
+
+#ifdef ANDROID
+  void (*get_sos_marker_position) (j_decompress_ptr cinfo,huffman_index *index);
+  int current_sos_marker_position;
+#endif
 };
 
 /* Entropy decoding */
@@ -206,6 +236,13 @@ struct jpeg_entropy_decoder {
   /* This is here to share code between baseline and progressive decoders; */
   /* other modules probably should not use it */
   boolean insufficient_data;    /* set TRUE after emitting warning */
+
+#ifdef ANDROID
+  boolean (*decode_mcu_discard_coef) (j_decompress_ptr cinfo);
+  void (*configure_huffman_decoder) (j_decompress_ptr cinfo,huffman_offset_data offset);
+  void (*get_huffman_decoder_configuration) (j_decompress_ptr cinfo,huffman_offset_data *offset);
+  huffman_index *index;
+#endif
 };
 
 /* Inverse DCT (also performs dequantization) */
@@ -316,18 +353,39 @@ EXTERN(void) jinit_color_deconverter (j_decompress_ptr cinfo);
 EXTERN(void) jinit_1pass_quantizer (j_decompress_ptr cinfo);
 EXTERN(void) jinit_2pass_quantizer (j_decompress_ptr cinfo);
 EXTERN(void) jinit_merged_upsampler (j_decompress_ptr cinfo);
+
+#ifdef ANDROID
+EXTERN(void) jinit_huff_decoder_no_data(j_decompress_ptr cinfo);
+EXTERN(void) jpeg_decompress_per_scan_setup (j_decompress_ptr cinfo);
+#endif
+
 /* Memory manager initialization */
 EXTERN(void) jinit_memory_mgr (j_common_ptr cinfo);
 
 /* Utility routines in jutils.c */
 EXTERN(long) jdiv_round_up (long a, long b);
 EXTERN(long) jround_up (long a, long b);
+
+#ifdef ANDROID
+EXTERN(long) jmin (long a, long b);
+#endif
+
 EXTERN(void) jcopy_sample_rows (JSAMPARRAY input_array, int source_row,
                                 JSAMPARRAY output_array, int dest_row,
                                 int num_rows, JDIMENSION num_cols);
 EXTERN(void) jcopy_block_row (JBLOCKROW input_row, JBLOCKROW output_row,
                               JDIMENSION num_blocks);
 EXTERN(void) jzero_far (void * target, size_t bytestozero);
+
+#ifdef ANDROID
+EXTERN(void) jset_input_stream_position (j_decompress_ptr cinfo,
+                    int offset);
+EXTERN(void) jset_input_stream_position_bit (j_decompress_ptr cinfo,
+                    int byte_offset, int bit_left, INT32 buf);
+
+EXTERN(int) jget_input_stream_position (j_decompress_ptr cinfo);
+#endif
+
 /* Constant tables in jutils.c */
 #if 0                           /* This table is not actually needed in v6a */
 extern const int jpeg_zigzag_order[]; /* natural coef order to zigzag order */

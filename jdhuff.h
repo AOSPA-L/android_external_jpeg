@@ -79,6 +79,10 @@ typedef INT32 bit_buf_type;     /* type of bit-extraction buffer */
 
 #endif
 
+#ifdef ANDROID
+#define LOG_TWO_BIT_BUF_SIZE  5        /* log_2(BIT_BUF_SIZE) */
+#endif
+
 /* If long is > 32 bits on your machine, and shifting/masking longs is
  * reasonably fast, making bit_buf_type be long and setting BIT_BUF_SIZE
  * appropriately should be a win.  Unfortunately we can't define the size

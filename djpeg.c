@@ -108,6 +108,9 @@ usage (void)
   fprintf(stderr, "  -grayscale     Force grayscale output\n");
   fprintf(stderr, "  -rgb           Force RGB output\n");
   fprintf(stderr, "  -rgb565        Force RGB565 output\n");
+#ifdef ANDROID
+  fprintf(stderr, "  -rgba8888      Force RGBA8888 output\n");
+#endif
 #ifdef IDCT_SCALING_SUPPORTED
   fprintf(stderr, "  -scale M/N     Scale output image by fraction M/N, eg, 1/8\n");
 #endif
@@ -285,8 +288,14 @@ parse_switches (j_decompress_ptr cinfo, int argc, char **argv,
     } else if (keymatch(arg, "rgb565", 2)) {
       /* Force RGB565 output. */
       cinfo->out_color_space = JCS_RGB565;
-
-    } else if (keymatch(arg, "map", 3)) {
+    }
+#ifdef ANDROID
+      else if (keymatch(arg, "rgba8888", 4)) {
+      /* Force RGBA8888 output. */
+      cinfo->out_color_space = JCS_RGBA_8888;
+    }
+#endif
+    else if (keymatch(arg, "map", 3)) {
       /* Quantize to a color map taken from an input file. */
       if (++argn >= argc)       /* advance to next argument */
         usage();

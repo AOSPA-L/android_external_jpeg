@@ -86,6 +86,7 @@ static const int mips_idct_ifast_coefs[4] = {
 };
 
 /* The following struct is borrowed from jdsample.c */
+
 typedef void (*upsample1_ptr) (j_decompress_ptr cinfo,
                                jpeg_component_info * compptr,
                                JSAMPARRAY input_data,

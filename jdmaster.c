@@ -112,7 +112,17 @@ jpeg_core_output_dimensions (j_decompress_ptr cinfo)
 #ifdef IDCT_SCALING_SUPPORTED
   int ci;
   jpeg_component_info *compptr;
+#endif
 
+  /* Prevent application from calling me at wrong times */
+#if ANDROID_TILE_BASED_DECODE
+  // Tile based decoding may call this function several times.
+  if (!cinfo->tile_decode)
+#endif /* ANDROID_TILE_BASED_DECODE */
+    if (cinfo->global_state != DSTATE_READY)
+      ERREXIT1(cinfo, JERR_BAD_STATE, cinfo->global_state);
+
+#ifdef IDCT_SCALING_SUPPORTED
   /* Compute actual output image dimensions and DCT scaling choices. */
   if (cinfo->scale_num * DCTSIZE <= cinfo->scale_denom) {
     /* Provide 1/block_size scaling */
@@ -280,10 +290,6 @@ jpeg_calc_output_dimensions (j_decompress_ptr cinfo)
   jpeg_component_info *compptr;
 #endif
 
-  /* Prevent application from calling me at wrong times */
-  if (cinfo->global_state != DSTATE_READY)
-    ERREXIT1(cinfo, JERR_BAD_STATE, cinfo->global_state);
-
   /* Compute core output image dimensions and DCT scaling choices. */
   jpeg_core_output_dimensions(cinfo);
 
@@ -363,6 +369,9 @@ jpeg_calc_output_dimensions (j_decompress_ptr cinfo)
     break;
   case JCS_CMYK:
   case JCS_YCCK:
+#ifdef ANDROID_RGB
+  case JCS_RGBA_8888:
+#endif
     cinfo->out_color_components = 4;
     break;
   default:                      /* else must be same colorspace as in file */

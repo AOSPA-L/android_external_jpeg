@@ -119,7 +119,19 @@ put_pixel_rows (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
       outptr += 3;
       inptr2++;
     }
-  } else {
+  }
+#ifdef ANDROID_RGB
+  else if(cinfo->out_color_space == JCS_RGBA_8888) {
+    for (col = cinfo->output_width; col > 0; col--) {
+      outptr[2] = *inptr++;
+      outptr[1] = *inptr++;
+      outptr[0] = *inptr++;
+      outptr[3] = *inptr++;       /* can omit GETJSAMPLE() safely */
+      outptr += 4;
+      }
+    }
+#endif
+  else {
     for (col = cinfo->output_width; col > 0; col--) {
       outptr[2] = *inptr++;       /* can omit GETJSAMPLE() safely */
       outptr[1] = *inptr++;
@@ -216,7 +228,14 @@ write_bmp_header (j_decompress_ptr cinfo, bmp_dest_ptr dest)
   } else if (cinfo->out_color_space == JCS_RGB565) {
     bits_per_pixel = 24;
     cmap_entries   = 0;
-  } else {
+  }
+#ifdef ANDROID_RGB
+  else if (cinfo->out_color_space == JCS_RGBA_8888) {
+    bits_per_pixel = 32;
+    cmap_entries   = 0;
+  }
+#endif
+  else {
     /* Grayscale output.  We need to fake a 256-entry colormap. */
     bits_per_pixel = 8;
     cmap_entries = 256;
@@ -284,7 +303,14 @@ write_os2_header (j_decompress_ptr cinfo, bmp_dest_ptr dest)
   } else if (cinfo->out_color_space == JCS_RGB565) {
     bits_per_pixel = 24;
     cmap_entries   = 0;
-  } else {
+  }
+#ifdef ANDROID_RGB
+    else if (cinfo->out_color_space == JCS_RGBA_8888) {
+    bits_per_pixel = 32;
+    cmap_entries   = 0;
+  }
+#endif
+  else {
     /* Grayscale output.  We need to fake a 256-entry colormap. */
     bits_per_pixel = 8;
     cmap_entries = 256;
@@ -345,7 +371,19 @@ write_colormap (j_decompress_ptr cinfo, bmp_dest_ptr dest,
         if (map_entry_size == 4)
           putc(0, outfile);
       }
-    } else {
+    }
+   else if (cinfo->out_color_components == 4) {
+      /* Normal case with RGBA colormap */
+      for (i = 0; i < num_colors; i++) {
+        putc(GETJSAMPLE(colormap[3][i]), outfile);
+        putc(GETJSAMPLE(colormap[2][i]), outfile);
+        putc(GETJSAMPLE(colormap[1][i]), outfile);
+        putc(GETJSAMPLE(colormap[0][i]), outfile);
+        if (map_entry_size == 4)
+          putc(0, outfile);
+      }
+    }
+   else {
       /* Grayscale colormap (only happens with grayscale quantization) */
       for (i = 0; i < num_colors; i++) {
         putc(GETJSAMPLE(colormap[0][i]), outfile);
@@ -447,7 +485,13 @@ jinit_write_bmp (j_decompress_ptr cinfo, boolean is_os2)
       dest->pub.put_pixel_rows = put_pixel_rows;
   } else if(cinfo->out_color_space == JCS_RGB565 ) {
       dest->pub.put_pixel_rows = put_pixel_rows;
-  } else {
+  }
+#ifdef ANDROID_RGB
+    else if (cinfo->out_color_space == JCS_RGBA_8888 ) {
+      dest->pub.put_pixel_rows = put_pixel_rows;
+  }
+#endif
+   else {
     ERREXIT(cinfo, JERR_BMP_COLORSPACE);
   }
 
@@ -458,7 +502,8 @@ jinit_write_bmp (j_decompress_ptr cinfo, boolean is_os2)
   if (cinfo->out_color_space == JCS_RGB565) {
     row_width = cinfo->output_width * 2;
     dest->row_width = dest->data_width = cinfo->output_width * 3;
-  } else {
+  }
+  else {
     row_width = cinfo->output_width * cinfo->output_components;
     dest->row_width = dest->data_width = row_width;
   }

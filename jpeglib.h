@@ -28,13 +28,13 @@
 #endif
 #include "jmorecfg.h"           /* seldom changed options */
 
-
+#ifndef ANDROID
 #ifdef __cplusplus
 #ifndef DONT_USE_EXTERN_C
 extern "C" {
 #endif
 #endif
-
+#endif
 
 /* Various constants determining the sizes of things.
  * All of these are specified by the JPEG standard, so don't change them
@@ -236,8 +236,19 @@ typedef enum {
   JCS_EXT_BGRA,           /* blue/green/red/alpha */
   JCS_EXT_ABGR,           /* alpha/blue/green/red */
   JCS_EXT_ARGB,           /* alpha/red/green/blue */
+#ifdef ANDROID_RGB
+  JCS_RGB565,             /* 5-bit red/6-bit green/5-bit blue */
+  JCS_RGBA_8888           /* red/green/blue/alpha */
+#else
   JCS_RGB565              /* 5-bit red/6-bit green/5-bit blue */
+#endif
 } J_COLOR_SPACE;
+
+#ifdef ANDROID_RGB
+#ifndef JCS_RGB_565
+#define JCS_RGB_565 JCS_RGB565
+#endif
+#endif
 
 /* DCT/IDCT algorithm options. */
 
@@ -476,6 +487,10 @@ struct jpeg_decompress_struct {
   /* Basic description of image --- filled in by jpeg_read_header(). */
   /* Application may inspect these values to decide how to process image. */
 
+#ifdef ANDROID
+  JDIMENSION original_image_width; /* nominal image width (from SOF marker) */
+#endif
+
   JDIMENSION image_width;       /* nominal image width (from SOF marker) */
   JDIMENSION image_height;      /* nominal image height */
   int num_components;           /* # of color components in JPEG image */
@@ -597,6 +612,9 @@ struct jpeg_decompress_struct {
 #if JPEG_LIB_VERSION >= 80
   boolean is_baseline;          /* TRUE if Baseline SOF0 encountered */
 #endif
+#ifdef ANDROID
+  boolean tile_decode;          /* TRUE if using tile based decoding */
+#endif
   boolean progressive_mode;     /* TRUE if SOFn specifies progressive mode */
   boolean arith_code;           /* TRUE=arithmetic coding, FALSE=Huffman */
 
@@ -705,6 +723,65 @@ struct jpeg_decompress_struct {
 };
 
 
+#ifdef ANDROID
+
+typedef struct {
+
+  // |--- byte_offset ---|- bit_left -|
+  //  \------ 27 -------/ \---- 5 ----/
+  unsigned int bitstream_offset;
+  short prev_dc[3];
+
+  // remaining EOBs in EOBRUN
+  unsigned short EOBRUN;
+
+  // save the decoder current bit buffer, entropy->bitstate.get_buffer.
+  INT32 get_buffer;
+
+  // save the restart info.
+  unsigned short restarts_to_go;
+  unsigned char next_restart_num;
+} huffman_offset_data;
+
+typedef struct {
+
+  // The header starting position of this scan
+  unsigned int bitstream_offset;
+
+  // Number of components in this scan
+  int comps_in_scan;
+
+  // Number of MCUs in each row
+  int MCUs_per_row;
+  int MCU_rows_per_iMCU_row;
+
+  // The last MCU position and its dc value in this scan
+  huffman_offset_data prev_MCU_offset;
+
+  huffman_offset_data **offset;
+} huffman_scan_header;
+
+#define DEFAULT_MCU_SAMPLE_SIZE 16
+
+typedef struct {
+
+  // The number of MCUs that we sample each time as an index point
+  int MCU_sample_size;
+
+  // Number of scan in this image
+  int scan_count;
+
+  // Number of iMCUs rows in this image
+  int total_iMCU_rows;
+
+  // Memory used by scan struct
+  size_t mem_used;
+  huffman_scan_header *scan;
+} huffman_index;
+
+#endif
+
+
 /* "Object" declarations for JPEG modules that may be supplied or called
  * directly by the surrounding application.
  * As with all objects in the JPEG library, these structs only define the
@@ -800,12 +877,19 @@ struct jpeg_destination_mgr {
 struct jpeg_source_mgr {
   const JOCTET * next_input_byte; /* => next byte to read from buffer */
   size_t bytes_in_buffer;       /* # of bytes remaining in buffer */
+#ifdef ANDROID
+  const JOCTET * start_input_byte; /* => first byte to read from input */
+  size_t current_offset; /* current readed input offset */
+#endif
 
   void (*init_source) (j_decompress_ptr cinfo);
   boolean (*fill_input_buffer) (j_decompress_ptr cinfo);
   void (*skip_input_data) (j_decompress_ptr cinfo, long num_bytes);
   boolean (*resync_to_restart) (j_decompress_ptr cinfo, int desired);
   void (*term_source) (j_decompress_ptr cinfo);
+#ifdef ANDROID
+  boolean (*seek_input_data) (j_decompress_ptr cinfo, long byte_offset);
+#endif
 };
 
 
@@ -867,6 +951,18 @@ struct jpeg_memory_mgr {
   /* Maximum allocation request accepted by alloc_large. */
   long max_alloc_chunk;
 };
+
+
+
+/* Compatible with old JPEG define */
+
+#ifndef JPP
+#define JPP(arglist)    arglist
+#endif
+
+#ifndef FAR
+#define FAR
+#endif
 
 
 /* Routine signature for application-supplied marker processing methods.
@@ -977,6 +1073,11 @@ EXTERN(int) jpeg_read_header (j_decompress_ptr cinfo, boolean require_image);
 
 /* Main entry points for decompression */
 EXTERN(boolean) jpeg_start_decompress (j_decompress_ptr cinfo);
+
+#ifdef ANDROID
+EXTERN(boolean) jpeg_start_tile_decompress (j_decompress_ptr cinfo);
+#endif
+
 EXTERN(JDIMENSION) jpeg_read_scanlines (j_decompress_ptr cinfo,
                                         JSAMPARRAY scanlines,
                                         JDIMENSION max_lines);
@@ -986,6 +1087,19 @@ EXTERN(boolean) jpeg_finish_decompress (j_decompress_ptr cinfo);
 EXTERN(JDIMENSION) jpeg_read_raw_data (j_decompress_ptr cinfo, JSAMPIMAGE data,
                                        JDIMENSION max_lines);
 
+#ifdef ANDROID
+EXTERN(JDIMENSION) jpeg_read_scanlines_from (j_decompress_ptr cinfo,
+                                           JSAMPARRAY scanlines,
+                                           int line_offset,
+                                           JDIMENSION max_lines);
+EXTERN(JDIMENSION) jpeg_read_tile_scanline (j_decompress_ptr cinfo,
+                        huffman_index *index,
+                        JSAMPARRAY scanlines);
+EXTERN(void) jpeg_init_read_tile_scanline (j_decompress_ptr cinfo,
+                        huffman_index *index,
+                        int *start_x, int *start_y,
+                        int *width, int *height);
+#endif
 /* Additional entry points for buffered-image mode. */
 EXTERN(boolean) jpeg_has_multiple_scans (j_decompress_ptr cinfo);
 EXTERN(boolean) jpeg_start_output (j_decompress_ptr cinfo, int scan_number);
@@ -1040,6 +1154,16 @@ EXTERN(void) jpeg_destroy (j_common_ptr cinfo);
 /* Default restart-marker-resync procedure for use by data source modules */
 EXTERN(boolean) jpeg_resync_to_restart (j_decompress_ptr cinfo, int desired);
 
+#ifdef ANDROID
+EXTERN(boolean) jpeg_build_huffman_index (j_decompress_ptr cinfo, huffman_index *index);
+EXTERN(void) jpeg_configure_huffman_decoder(j_decompress_ptr cinfo,huffman_offset_data offset);
+EXTERN(void) jpeg_get_huffman_decoder_configuration(j_decompress_ptr cinfo,
+                                                    huffman_offset_data *offset);
+EXTERN(void) jpeg_create_huffman_index(j_decompress_ptr cinfo,huffman_index *index);
+EXTERN(void) jpeg_configure_huffman_index_scan(j_decompress_ptr cinfo,
+                                               huffman_index *index, int scan_no, int offset);
+EXTERN(void) jpeg_destroy_huffman_index(huffman_index *index);
+#endif
 
 /* These marker codes are exported since applications and data source modules
  * are likely to want to use them.
@@ -1096,9 +1220,11 @@ struct jpeg_color_quantizer { long dummy; };
 #include "jerror.h"             /* fetch error codes too */
 #endif
 
+#ifndef ANDROID
 #ifdef __cplusplus
 #ifndef DONT_USE_EXTERN_C
 }
+#endif
 #endif
 #endif
 

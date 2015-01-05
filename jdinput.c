@@ -32,6 +32,10 @@ typedef my_input_controller * my_inputctl_ptr;
 
 /* Forward declarations */
 METHODDEF(int) consume_markers (j_decompress_ptr cinfo);
+#ifdef ANDROID
+METHODDEF(int) consume_markers_with_huffman_index (j_decompress_ptr cinfo,
+                    huffman_index *index, int current_scan);
+#endif /* ANDROID */
 
 
 /*
@@ -131,6 +135,10 @@ initial_setup (j_decompress_ptr cinfo)
     cinfo->inputctl->has_multiple_scans = TRUE;
   else
     cinfo->inputctl->has_multiple_scans = FALSE;
+
+#ifdef ANDROID
+  cinfo->original_image_width = cinfo->image_width;
+#endif /* ANDROID */
 }
 
 
@@ -196,6 +204,16 @@ per_scan_setup (j_decompress_ptr cinfo)
       tmp = (int) (compptr->width_in_blocks % compptr->MCU_width);
       if (tmp == 0) tmp = compptr->MCU_width;
       compptr->last_col_width = tmp;
+
+#ifdef ANDROID_TILE_BASED_DECODE
+      if (cinfo->tile_decode) {
+        tmp = (int) (jdiv_round_up(cinfo->image_width, 8)
+                % compptr->MCU_width);
+        if (tmp == 0) tmp = compptr->MCU_width;
+        compptr->last_col_width = tmp;
+      }
+#endif
+
       tmp = (int) (compptr->height_in_blocks % compptr->MCU_height);
       if (tmp == 0) tmp = compptr->MCU_height;
       compptr->last_row_height = tmp;
@@ -275,6 +293,11 @@ start_input_pass (j_decompress_ptr cinfo)
   (*cinfo->entropy->start_pass) (cinfo);
   (*cinfo->coef->start_input_pass) (cinfo);
   cinfo->inputctl->consume_input = cinfo->coef->consume_data;
+
+#ifdef ANDROID
+  cinfo->inputctl->consume_input_build_huffman_index =
+         cinfo->coef->consume_data_build_huffman_index;
+#endif /* ANDROID */
 }
 
 
@@ -288,6 +311,11 @@ METHODDEF(void)
 finish_input_pass (j_decompress_ptr cinfo)
 {
   cinfo->inputctl->consume_input = consume_markers;
+
+#ifdef ANDROID
+  cinfo->inputctl->consume_input_build_huffman_index =
+         consume_markers_with_huffman_index;
+#endif /* ANDROID */
 }
 
 
@@ -361,6 +389,12 @@ reset_input_controller (j_decompress_ptr cinfo)
   inputctl->pub.has_multiple_scans = FALSE; /* "unknown" would be better */
   inputctl->pub.eoi_reached = FALSE;
   inputctl->inheaders = TRUE;
+
+#ifdef ANDROID
+  inputctl->pub.consume_input_build_huffman_index =
+        consume_markers_with_huffman_index;
+#endif /* ANDROID */
+
   /* Reset other modules */
   (*cinfo->err->reset_error_mgr) ((j_common_ptr) cinfo);
   (*cinfo->marker->reset_marker_reader) (cinfo);
@@ -395,4 +429,26 @@ jinit_input_controller (j_decompress_ptr cinfo)
   inputctl->pub.has_multiple_scans = FALSE; /* "unknown" would be better */
   inputctl->pub.eoi_reached = FALSE;
   inputctl->inheaders = TRUE;
+#ifdef ANDROID
+  inputctl->pub.consume_markers = consume_markers_with_huffman_index;
+  inputctl->pub.consume_input_build_huffman_index =
+        consume_markers_with_huffman_index;
+#endif /* ANDROID */
 }
+
+#ifdef ANDROID
+
+GLOBAL(void)
+jpeg_decompress_per_scan_setup(j_decompress_ptr cinfo)
+{
+    per_scan_setup(cinfo);
+}
+
+METHODDEF(int)
+consume_markers_with_huffman_index (j_decompress_ptr cinfo,
+        huffman_index *index, int current_scan)
+{
+    return consume_markers(cinfo);
+}
+
+#endif /* ANDROID */

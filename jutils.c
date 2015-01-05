@@ -88,6 +88,14 @@ jround_up (long a, long b)
   return a - (a % b);
 }
 
+#ifdef ANDROID
+GLOBAL(long)
+jmin (long a, long b)
+{
+  return a < b ? a : b;
+}
+#endif
+
 
 GLOBAL(void)
 jcopy_sample_rows (JSAMPARRAY input_array, int source_row,
