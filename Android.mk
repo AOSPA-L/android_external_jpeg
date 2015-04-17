@@ -87,26 +87,34 @@ LOCAL_SRC_FILES += \
     jmem-android.c
 endif
 
-LOCAL_SHARED_LIBRARIES := libcutils
+
+LOCAL_STATIC_LIBRARIES := liblog \
+    libcutils \
 
 ifeq (USE_SIMD, true)
-LOCAL_STATIC_LIBRARIES := libsimd
-LOCAL_CFLAGS += -DANDROID_JPEG_USE_VENUM
+LOCAL_STATIC_LIBRARIES += libsimd
 else
 libjpeg_SOURCES_DIST += jsimd_none.c
 endif
 
 LOCAL_SRC_FILES:= $(libjpeg_SOURCES_DIST)
 
-LOCAL_CFLAGS := -DAVOID_TABLES  -O3 -fstrict-aliasing -fprefetch-loop-arrays  -DANDROID \
+LOCAL_CFLAGS += -DAVOID_TABLES  -O3 -fstrict-aliasing -fprefetch-loop-arrays  -DANDROID \
         -DANDROID_TILE_BASED_DECODE -DENABLE_ANDROID_NULL_CONVERT -DANDROID_JPEG_USE_VENUM
 
-LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_STATIC_LIBRARY)
-
 LOCAL_MODULE_TAGS := debug
+LOCAL_MODULE := libjpeg_static
 
+include $(BUILD_STATIC_LIBRARY)
+
+######################################################
+#          Build shared library libjpeg.so         ###
+######################################################
+include $(CLEAR_VARS)
 LOCAL_MODULE := libjpeg
-
+LOCAL_MODULE_TAGS := optional
+LOCAL_WHOLE_STATIC_LIBRARIES = libjpeg_static
+LOCAL_SHARED_LIBRARIES := liblog libcutils
 include $(BUILD_SHARED_LIBRARY)
 
 ######################################################
