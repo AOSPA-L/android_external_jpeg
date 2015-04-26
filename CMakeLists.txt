@@ -119,14 +119,18 @@ else()
 endif()
 
 if(MSVC)
-  # Use the static C library for all build types
-  foreach(var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-    if(${var} MATCHES "/MD")
-      string(REGEX REPLACE "/MD" "/MT" ${var} "${${var}}")
-    endif()
-  endforeach()
-
+  option(WITH_CRT_DLL
+    "Link all libjpeg-turbo libraries and executables with the C run-time DLL (msvcr*.dll) instead of the static C run-time library (libcmt*.lib.)  The default is to use the C run-time DLL only with the libraries and executables that need it."
+    FALSE)
+  if(NOT WITH_CRT_DLL)
+    # Use the static C library for all build types
+    foreach(var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+      if(${var} MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" ${var} "${${var}}")
+      endif()
+    endforeach()
+  endif()
   add_definitions(-W3 -wd4996)
 endif()
 
@@ -557,7 +561,7 @@ foreach(libtype shared static)
   add_test(djpeg${suffix}-gray-islow-rgb
     ${dir}djpeg${suffix} -dct int -rgb -outfile testout_gray_islow_rgb.ppm
       testout_gray_islow.jpg)
-  add_test(cjpeg${suffix}-gray-islow-rgb-cmp
+  add_test(djpeg${suffix}-gray-islow-rgb-cmp
     ${CMAKE_COMMAND} -DMD5=${MD5_PPM_GRAY_ISLOW_RGB}
       -DFILE=testout_gray_islow_rgb.ppm
       -P ${CMAKE_SOURCE_DIR}/cmakescripts/md5cmp.cmake)
@@ -637,10 +641,10 @@ foreach(libtype shared static)
   endif()
   if(WITH_ARITH_DEC)
     # CC: RGB->YCC  SAMP: h2v2 merged  IDCT: ifast  ENT: arith
-    add_test(cjpeg${suffix}-420m-ifast-ari
+    add_test(djpeg${suffix}-420m-ifast-ari
       ${dir}djpeg${suffix} -fast -ppm -outfile testout_420m_ifast_ari.ppm
         ${CMAKE_SOURCE_DIR}/testimages/testimgari.jpg)
-    add_test(cjpeg${suffix}-420m-ifast-ari-cmp
+    add_test(djpeg${suffix}-420m-ifast-ari-cmp
       ${CMAKE_COMMAND} -DMD5=${MD5_PPM_420M_IFAST_ARI}
         -DFILE=testout_420m_ifast_ari.ppm
         -P ${CMAKE_SOURCE_DIR}/cmakescripts/md5cmp.cmake)

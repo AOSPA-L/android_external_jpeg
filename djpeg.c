@@ -168,6 +168,7 @@ usage (void)
 #endif
 
   fprintf(stderr, "  -verbose  or  -debug   Emit debug output\n");
+  fprintf(stderr, "  -version       Print version information and exit\n");
   exit(EXIT_FAILURE);
 }
 
@@ -263,6 +264,11 @@ parse_switches (j_decompress_ptr cinfo, int argc, char **argv,
         printed_version = TRUE;
       }
       cinfo->err->trace_level++;
+
+    } else if (keymatch(arg, "version", 4)) {
+      fprintf(stderr, "%s version %s (build %s)\n",
+              PACKAGE_NAME, VERSION, BUILD);
+      exit(EXIT_SUCCESS);
 
     } else if (keymatch(arg, "fast", 1)) {
       /* Select recommended processing options for quick-and-dirty output. */

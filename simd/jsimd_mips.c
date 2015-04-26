@@ -563,6 +563,8 @@ jsimd_h2v1_fancy_upsample (j_decompress_ptr cinfo,
 GLOBAL(int)
 jsimd_can_h2v2_merged_upsample (void)
 {
+  init_simd();
+
   if (BITS_IN_JSAMPLE != 8)
     return 0;
   if (sizeof(JDIMENSION) != 4)
@@ -577,6 +579,8 @@ jsimd_can_h2v2_merged_upsample (void)
 GLOBAL(int)
 jsimd_can_h2v1_merged_upsample (void)
 {
+  init_simd();
+
   if (BITS_IN_JSAMPLE != 8)
     return 0;
   if (sizeof(JDIMENSION) != 4)

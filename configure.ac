@@ -39,6 +39,11 @@ DATADIR=`eval echo $DATADIR`
 if test "$DATADIR" = "/opt/libjpeg-turbo/share"; then
   datarootdir='${prefix}'
 fi
+DOCDIR=`eval echo ${docdir}`
+DOCDIR=`eval echo $DOCDIR`
+if test "$DOCDIR" = "/opt/libjpeg-turbo/doc/libjpeg-turbo"; then
+  docdir='${datadir}/doc'
+fi
 
 old_exec_prefix=${exec_prefix}
 if test "x$exec_prefix" = "xNONE"; then
@@ -437,7 +442,11 @@ if test "x${with_simd}" != "xno"; then
       AC_MSG_RESULT([yes (arm)])
       AC_MSG_CHECKING([if the assembler is GNU-compatible and can be used])
       AC_CHECK_COMPATIBLE_ARM_ASSEMBLER_IFELSE(
-        [AC_MSG_RESULT([yes])
+        [if test "x$ac_use_gas_preprocessor" = "xyes"; then
+           AC_MSG_RESULT([yes (with gas-preprocessor)])
+         else
+           AC_MSG_RESULT([yes])
+         fi
          simd_arch=arm],
         [AC_MSG_RESULT([no])
          with_simd=no])
@@ -453,7 +462,11 @@ if test "x${with_simd}" != "xno"; then
       AC_MSG_RESULT([yes (arm64)])
       AC_MSG_CHECKING([if the assembler is GNU-compatible and can be used])
       AC_CHECK_COMPATIBLE_ARM64_ASSEMBLER_IFELSE(
-        [AC_MSG_RESULT([yes])
+        [if test "x$ac_use_gas_preprocessor" = "xyes"; then
+           AC_MSG_RESULT([yes (with gas-preprocessor)])
+         else
+           AC_MSG_RESULT([yes])
+         fi
          simd_arch=aarch64],
         [AC_MSG_RESULT([no])
          with_simd=no])
@@ -529,7 +542,16 @@ case "$host_cpu" in
     RPMARCH=i386
     DEBARCH=i386
     ;;
+  *)
+    RPMARCH=`uname -m`
+    DEBARCH=$RPMARCH
+    ;;
 esac
+
+if test "${docdir}" = ""; then
+  docdir=${datadir}/doc
+  AC_SUBST(docdir)
+fi
 
 AC_SUBST(RPMARCH)
 AC_SUBST(RPM_CONFIG_ARGS)

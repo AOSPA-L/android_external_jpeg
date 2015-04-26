@@ -206,6 +206,7 @@ static int setCompDefaults(struct jpeg_compress_struct *cinfo,
 	cinfo->input_components=tjPixelSize[pixelFormat];
 	jpeg_set_defaults(cinfo);
 
+#ifndef NO_GETENV
 	if((env=getenv("TJ_OPTIMIZE"))!=NULL && strlen(env)>0 && !strcmp(env, "1"))
 		cinfo->optimize_coding=TRUE;
 	if((env=getenv("TJ_ARITHMETIC"))!=NULL && strlen(env)>0	&& !strcmp(env, "1"))
@@ -224,6 +225,7 @@ static int setCompDefaults(struct jpeg_compress_struct *cinfo,
 				cinfo->restart_in_rows=temp;
 		}
 	}
+#endif
 
 	if(jpegQual>=0)
 	{
@@ -237,9 +239,11 @@ static int setCompDefaults(struct jpeg_compress_struct *cinfo,
 		jpeg_set_colorspace(cinfo, JCS_YCCK);
 	else jpeg_set_colorspace(cinfo, JCS_YCbCr);
 
+#ifndef NO_GETENV
 	if((env=getenv("TJ_PROGRESSIVE"))!=NULL && strlen(env)>0
 		&& !strcmp(env, "1"))
 		jpeg_simple_progression(cinfo);
+#endif
 
 	cinfo->comp_info[0].h_samp_factor=tjMCUWidth[subsamp]/8;
 	cinfo->comp_info[1].h_samp_factor=1;
@@ -316,6 +320,14 @@ static int setDecompDefaults(struct jpeg_decompress_struct *dinfo,
 static int getSubsamp(j_decompress_ptr dinfo)
 {
 	int retval=-1, i, k;
+
+	/* The sampling factors actually have no meaning with grayscale JPEG files,
+	   and in fact it's possible to generate grayscale JPEGs with sampling
+	   factors > 1 (even though those sampling factors are ignored by the
+	   decompressor.)  Thus, we need to treat grayscale as a special case. */
+	if(dinfo->num_components==1 && dinfo->jpeg_color_space==JCS_GRAYSCALE)
+		return TJSAMP_GRAY;
+
 	for(i=0; i<NUMSUBOPT; i++)
 	{
 		if(dinfo->num_components==pixelsize[i]
