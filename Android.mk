@@ -1,4 +1,3 @@
-ifeq (true, $(USE_LIBJPEG_TURBO))
 # Makefile for libjpeg-turbo
 
 ifneq ($(TARGET_SIMULATOR),true)
@@ -285,4 +284,3 @@ LOCAL_MODULE := wrjpgcom
 include $(BUILD_EXECUTABLE)
 
 endif  # TARGET_SIMULATOR != true
-endif  # USE_LIBJPEG_TURBO = true
